@@ -141,17 +141,21 @@ with st.form("pred_form"):
 if submitted:
 
     data_row = [user_inputs[k] for k in MODEL_INFO["keys"]]
+
     # Prepare data
     base_df = df_features
-input_df = pd.concat([base_df, pd.DataFrame([data_row], columns=base_df.columns)])
-    
-res, status = call_model_api(input_df)
+    input_df = pd.concat(
+        [base_df, pd.DataFrame([data_row], columns=base_df.columns)]
+    )
 
-if status == 200:
+    res, status = call_model_api(input_df)
+
+    if status == 200:
         st.metric("Prediction Result", res)
-        display_explanation(input_df,session, aws_bucket)
+        display_explanation(input_df, session, aws_bucket)
     else:
         st.error(res)
+
 
 
 
