@@ -146,11 +146,13 @@ if submitted:
 input_df = pd.concat([base_df, pd.DataFrame([data_row], columns=base_df.columns)])
     
 res, status = call_model_api(input_df)
-    if status == 200:
+
+if status == 200:
         st.metric("Prediction Result", res)
         display_explanation(input_df,session, aws_bucket)
     else:
         st.error(res)
+
 
 
 
