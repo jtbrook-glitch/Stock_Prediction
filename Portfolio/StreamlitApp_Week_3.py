@@ -143,9 +143,7 @@ if submitted:
     data_row = [user_inputs[k] for k in MODEL_INFO["keys"]]
     # Prepare data
     base_df = df_features
-row_df = pd.DataFrame([data_row])  # data_row is a dict: {"WFC": 0.0, ...}
-row_df = row_df.reindex(columns=base_df.columns, fill_value=0)  # align to expected columns
-input_df = pd.concat([base_df, row_df], ignore_index=True)
+input_df = pd.concat([base_df, pd.DataFrame([data_row], columns=base_df.columns)])
     
 res, status = call_model_api(input_df)
 if status == 200:
