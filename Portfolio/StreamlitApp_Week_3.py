@@ -4,9 +4,6 @@ import pandas as pd
 import streamlit as st
 import matplotlib.pyplot as plt
 import posixpath
-
-import joblib
-import tarfile
 import tempfile
 
 import boto3
@@ -61,7 +58,6 @@ df_features = extract_features()
 MODEL_INFO = {
     "endpoint": aws_endpoint,
     "explainer": "explainer.shap",
-    "pipeline": "finalized_model.tar.gz",
 
     # What the SageMaker endpoint expects (15 features)
     "keys": [
@@ -80,14 +76,36 @@ MODEL_INFO = {
 }
 
 # =========================
-# SHAP Explainer Loader
+# S3 Diagnostics (Optional)
+# =========================
+def list_s3_keys(bucket: str, prefix: str):
+    """Lists keys under a prefix. Useful for finding the real path of the explainer."""
+    s3 = session.client("s3")
+    resp = s3.list_objects_v2(Bucket=bucket, Prefix=prefix)
+    return [o["Key"] for o in resp.get("Contents", [])]
+
+# =========================
+# SHAP Explainer Loader (with diagnostics)
 # =========================
 def load_shap_explainer(_session, bucket, key, local_path):
     s3_client = _session.client("s3")
 
     # Only download if it doesn't exist locally
     if not os.path.exists(local_path):
-        s3_client.download_file(Filename=local_path, Bucket=bucket, Key=key)
+        try:
+            s3_client.download_file(Filename=local_path, Bucket=bucket, Key=key)
+        except Exception as e:
+            # Streamlit redacts raw error sometimes; print key details ourselves
+            if hasattr(e, "response"):
+                code = e.response.get("Error", {}).get("Code", "Unknown")
+                msg = e.response.get("Error", {}).get("Message", "No message")
+                st.error(f"S3 download failed: {code} — {msg}")
+            else:
+                st.error(f"S3 download failed: {repr(e)}")
+
+            st.error(f"Bucket: {bucket}")
+            st.error(f"Key attempted: {key}")
+            raise
 
     with open(local_path, "rb") as f:
         return shap.Explainer.load(f)
@@ -108,7 +126,6 @@ def call_model_api(input_df: pd.DataFrame):
         x = input_df.to_numpy(dtype=np.float32)  # shape (1, 15)
         raw_pred = predictor.predict(x)
 
-        # Make robust to shape (1,1), (1,), scalar, etc.
         pred_val = np.array(raw_pred).reshape(-1)[0]
         return round(float(pred_val), 4), 200
     except Exception as e:
@@ -119,34 +136,42 @@ def call_model_api(input_df: pd.DataFrame):
 # =========================
 def display_explanation(input_df, _session, _aws_bucket):
     explainer_name = MODEL_INFO["explainer"]
-    explainer_s3_key = posixpath.join("explainer", explainer_name)
-    local_path = os.path.join(tempfile.gettempdir(), explainer_name)
 
+    # You are currently assuming the explainer lives at:
+    # s3://<bucket>/explainer/explainer.shap
+    explainer_s3_key = posixpath.join("explainer", explainer_name)
+
+    local_path = os.path.join(tempfile.gettempdir(), explainer_name)
     explainer = load_shap_explainer(_session, _aws_bucket, explainer_s3_key, local_path)
 
     shap_values = explainer(input_df)
 
     st.subheader("🔍 Decision Transparency (SHAP)")
-
-    # Let SHAP draw, but prevent it from popping its own window
     shap.plots.waterfall(shap_values[0], max_display=10, show=False)
     st.pyplot(plt.gcf(), clear_figure=True)
 
-    # top feature (best practice: use absolute value)
-    try:
-        vals = shap_values[0].values
-        names = shap_values[0].feature_names
-        top_idx = int(np.argmax(np.abs(vals)))
-        top_feature = names[top_idx]
-        st.info(f"**Business Insight:** The most influential factor in this decision was **{top_feature}**.")
-    except Exception:
-        pass
+    # Top feature (based on absolute SHAP magnitude)
+    vals = shap_values[0].values
+    names = shap_values[0].feature_names
+    top_idx = int(np.argmax(np.abs(vals)))
+    top_feature = names[top_idx]
+    st.info(f"**Business Insight:** The most influential factor in this decision was **{top_feature}**.")
 
 # =========================
 # Streamlit UI
 # =========================
 st.set_page_config(page_title="ML Deployment", layout="wide")
 st.title("👨‍💻 ML Deployment")
+
+with st.expander("🔧 Debug (S3 Explorer)", expanded=False):
+    st.caption("Use this if SHAP explainer fails to load. It lists keys under a prefix in your bucket.")
+    prefix = st.text_input("Prefix to list", value="explainer")
+    if st.button("List S3 keys"):
+        try:
+            keys = list_s3_keys(aws_bucket, prefix)
+            st.write(keys if keys else "No objects found under that prefix.")
+        except Exception as e:
+            st.error(f"Could not list objects: {e}")
 
 with st.form("pred_form"):
     st.subheader("Inputs")
@@ -169,14 +194,13 @@ with st.form("pred_form"):
 # Run Prediction
 # =========================
 if submitted:
-    # Start from last feature row
     row = df_features.iloc[-1].copy()
 
     # Overwrite only user-provided 11 inputs
     for k in MODEL_INFO["ui_keys"]:
         row[k] = user_inputs[k]
 
-    # Align to the 15 expected model keys (fills missing engineered cols with 0.0)
+    # Align to 15 expected keys; fill missing engineered cols with 0.0
     missing = [k for k in MODEL_INFO["keys"] if k not in row.index]
     if missing:
         st.warning(f"Missing engineered features in df_features (filled with 0.0): {missing}")
@@ -189,7 +213,12 @@ if submitted:
 
     if status == 200:
         st.metric("Prediction Result", res)
-        display_explanation(input_df, session, aws_bucket)
+
+        # SHAP should NOT crash the app; it will show diagnostic info if it fails
+        try:
+            display_explanation(input_df, session, aws_bucket)
+        except Exception:
+            st.warning("Prediction succeeded, but SHAP explainer could not be loaded from S3. Open Debug (S3 Explorer) above to find the correct key/path.")
     else:
         st.error(res)
 
