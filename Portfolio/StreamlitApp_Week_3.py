@@ -153,7 +153,15 @@ with st.form("pred_form"):
 
 if submitted:
 
-    data_row = [user_inputs[k] for k in MODEL_INFO["keys"]]
+# start from an existing feature row that already has ALL engineered columns
+row = df_features.iloc[-1].copy()
+
+# overwrite only the 11 things the user typed in
+for k in MODEL_INFO["ui_keys"]:
+    row[k] = user_inputs[k]
+
+# now build the 15-feature row in the exact order the model expects
+input_df = pd.DataFrame([[row[k] for k in MODEL_INFO["keys"]]], columns=MODEL_INFO["keys"])
 
     # Prepare data
     base_df = df_features
@@ -168,6 +176,7 @@ if submitted:
         display_explanation(input_df, session, aws_bucket)
     else:
         st.error(res)
+
 
 
 
