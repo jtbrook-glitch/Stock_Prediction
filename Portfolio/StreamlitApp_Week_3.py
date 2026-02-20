@@ -27,7 +27,7 @@ if project_root not in sys.path:
 from src.feature_utils import extract_features
 
 # =========================
-# Secrets
+# Secrets (DO NOT hardcode)
 # =========================
 aws_id = st.secrets["aws_credentials"]["AWS_ACCESS_KEY_ID"]
 aws_secret = st.secrets["aws_credentials"]["AWS_SECRET_ACCESS_KEY"]
@@ -79,7 +79,7 @@ MODEL_INFO = {
 # S3 Diagnostics (Optional)
 # =========================
 def list_s3_keys(bucket: str, prefix: str):
-    """Lists keys under a prefix. Useful for finding the real path of the explainer."""
+    """Lists keys under a prefix. Useful for confirming explainer path."""
     s3 = session.client("s3")
     resp = s3.list_objects_v2(Bucket=bucket, Prefix=prefix)
     return [o["Key"] for o in resp.get("Contents", [])]
@@ -90,12 +90,11 @@ def list_s3_keys(bucket: str, prefix: str):
 def load_shap_explainer(_session, bucket, key, local_path):
     s3_client = _session.client("s3")
 
-    # Only download if it doesn't exist locally
     if not os.path.exists(local_path):
         try:
             s3_client.download_file(Filename=local_path, Bucket=bucket, Key=key)
         except Exception as e:
-            # Streamlit redacts raw error sometimes; print key details ourselves
+            # Streamlit may redact; show our own details
             if hasattr(e, "response"):
                 code = e.response.get("Error", {}).get("Code", "Unknown")
                 msg = e.response.get("Error", {}).get("Message", "No message")
@@ -122,10 +121,9 @@ def call_model_api(input_df: pd.DataFrame):
     )
 
     try:
-        # NumpySerializer expects a numpy array
+        # NumpySerializer expects numpy array
         x = input_df.to_numpy(dtype=np.float32)  # shape (1, 15)
         raw_pred = predictor.predict(x)
-
         pred_val = np.array(raw_pred).reshape(-1)[0]
         return round(float(pred_val), 4), 200
     except Exception as e:
@@ -134,19 +132,22 @@ def call_model_api(input_df: pd.DataFrame):
 # =========================
 # Local Explainability
 # =========================
-def display_explanation(input_df, _session, _aws_bucket):
+def display_explanation(input_df: pd.DataFrame, _session, _aws_bucket):
     explainer_name = MODEL_INFO["explainer"]
 
-    # You are currently assuming the explainer lives at:
-    # s3://<bucket>/explainer/explainer.shap
-    explainer_s3_key = posixpath.join("explainer", explainer_name)
+    # ✅ FIXED: this is where you actually uploaded it
+    # s3://sagemaker-us-east-1-724944527346/sklearn-pipeline-deployment/explainer.shap
+    explainer_s3_key = "sklearn-pipeline-deployment/explainer.shap"
 
     local_path = os.path.join(tempfile.gettempdir(), explainer_name)
     explainer = load_shap_explainer(_session, _aws_bucket, explainer_s3_key, local_path)
 
+    # IMPORTANT: keep as DataFrame so feature names align
     shap_values = explainer(input_df)
 
     st.subheader("🔍 Decision Transparency (SHAP)")
+
+    # SHAP draws on current matplotlib figure; show=False prevents double-render
     shap.plots.waterfall(shap_values[0], max_display=10, show=False)
     st.pyplot(plt.gcf(), clear_figure=True)
 
@@ -164,8 +165,8 @@ st.set_page_config(page_title="ML Deployment", layout="wide")
 st.title("👨‍💻 ML Deployment")
 
 with st.expander("🔧 Debug (S3 Explorer)", expanded=False):
-    st.caption("Use this if SHAP explainer fails to load. It lists keys under a prefix in your bucket.")
-    prefix = st.text_input("Prefix to list", value="explainer")
+    st.caption("Lists keys under a prefix in your bucket to confirm file paths.")
+    prefix = st.text_input("Prefix to list", value="sklearn-pipeline-deployment")
     if st.button("List S3 keys"):
         try:
             keys = list_s3_keys(aws_bucket, prefix)
@@ -214,13 +215,17 @@ if submitted:
     if status == 200:
         st.metric("Prediction Result", res)
 
-        # SHAP should NOT crash the app; it will show diagnostic info if it fails
+        # SHAP should NOT crash the app; show diagnostics if it fails
         try:
             display_explanation(input_df, session, aws_bucket)
         except Exception:
-            st.warning("Prediction succeeded, but SHAP explainer could not be loaded from S3. Open Debug (S3 Explorer) above to find the correct key/path.")
+            st.warning(
+                "Prediction succeeded, but SHAP explainer could not be loaded from S3. "
+                "Open Debug (S3 Explorer) above to confirm the key/path."
+            )
     else:
         st.error(res)
+
 
 
 
