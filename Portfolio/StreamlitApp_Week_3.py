@@ -59,9 +59,16 @@ MODEL_INFO = {
         "endpoint": aws_endpoint,
         "explainer": 'explainer.shap',
         "pipeline": 'finalized_model.tar.gz',
-        "keys": ["JPM", "MS", "C", "WFC", "BAC", "COF", "DEXJPUS", "DEXUSUK", "SP500", "DJIA", "VIXCLS"],
-        "inputs": [{"name": k, "type": "number", "min": -1.0, "max": 1.0, "default": 0.0, "step": 0.01} for k in ["JPM", "MS", "C", "WFC", "BAC", "COF", "DEXJPUS", "DEXUSUK", "SP500", "DJIA", "VIXCLS"]]
-}
+"keys": [
+    "JPM","MS","C","WFC","BAC","COF",
+    "DEXJPUS","DEXUSUK","SP500","DJIA","VIXCLS",
+    "GS_mom5","GS_vol20","GS_hl_range","GS_ma10_50_gap"
+],
+"inputs": [{"name": k, "type": "number", "min": -1.0, "max": 1.0, "default": 0.0, "step": 0.01} for k in [
+    "JPM","MS","C","WFC","BAC","COF",
+    "DEXJPUS","DEXUSUK","SP500","DJIA","VIXCLS",
+    "GS_mom5","GS_vol20","GS_hl_range","GS_ma10_50_gap"
+]]
 
 def load_pipeline(_session, bucket, key):
     s3_client = _session.client('s3')
@@ -155,6 +162,7 @@ if submitted:
         display_explanation(input_df, session, aws_bucket)
     else:
         st.error(res)
+
 
 
 
