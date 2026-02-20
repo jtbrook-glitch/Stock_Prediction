@@ -160,16 +160,19 @@ if submitted:
     for k in MODEL_INFO["ui_keys"]:
         row[k] = user_inputs[k]
 
+    # debug
     missing = [k for k in MODEL_INFO["keys"] if k not in row.index]
-st.write("Missing keys:", missing)
-st.write("df_features columns count:", len(df_features.columns))
-st.write("MODEL_INFO keys count:", len(MODEL_INFO["keys"]))
+    st.write("Missing keys:", missing)
+    st.write("df_features columns count:", len(df_features.columns))
+    st.write("MODEL_INFO keys count:", len(MODEL_INFO["keys"]))
 
     # now build the 15-feature row in the exact order the model expects
-    input_df = pd.DataFrame([[row[k] for k in MODEL_INFO["keys"]]],
-                            columns=MODEL_INFO["keys"])
+    input_df = pd.DataFrame(
+        [[row[k] for k in MODEL_INFO["keys"]]],
+        columns=MODEL_INFO["keys"]
+    )
 
-    # Prepare data
+    # Prepare data (⚠️ careful here — see note below)
     base_df = df_features
     input_df = pd.concat(
         [base_df, pd.DataFrame([data_row], columns=base_df.columns)]
@@ -182,6 +185,7 @@ st.write("MODEL_INFO keys count:", len(MODEL_INFO["keys"]))
         display_explanation(input_df, session, aws_bucket)
     else:
         st.error(res)
+
 
 
 
