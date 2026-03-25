@@ -161,6 +161,3 @@ if submitted:
         display_explanation(input_df,session, aws_bucket)
     else:
         st.error(res)
-
-
-
