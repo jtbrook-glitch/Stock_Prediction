@@ -24,7 +24,7 @@ project_root = os.path.abspath(os.path.join(current_dir, ".."))
 if project_root not in sys.path:
     sys.path.append(project_root)
 
-from src.feature_utils import extract_features
+#from src.feature_utils import extract_features
 
 # =========================
 # Secrets (DO NOT hardcode)
@@ -53,11 +53,11 @@ sm_session = sagemaker.Session(boto_session=session)
 # =========================
 # Data & Model Config
 # =========================
-df_features = extract_features()
+#df_features = extract_features()
 
 MODEL_INFO = {
     "endpoint": aws_endpoint,
-    "explainer": "explainer.shap",
+    "explainer": "explainer_pca.shap",
 
     # What the SageMaker endpoint expects (15 features)
     "keys": [
