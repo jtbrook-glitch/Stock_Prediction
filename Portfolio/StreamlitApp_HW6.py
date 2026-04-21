@@ -63,7 +63,7 @@ MODEL_INFO = {
         "endpoint": aws_endpoint,
         "explainer": 'explainer_sentiment.shap',
         "pipeline": 'finalized_sentiment_model.tar.gz',
-        "keys": ['MSTT','NFLX','TSLA','PredictedSentiment'],
+        "keys": ['MSFT','NFLX','TSLA','PredictedSentiment'],
         "inputs": [{"name": k, "type": "number", "min": -1.0, "max": 1.0, "default": 0.0, "step": 0.01} for k in ['MSFT','NFLX','TSLA','PredictedSentiment']]
 }
 
