@@ -12,6 +12,7 @@ import tempfile
 import boto3
 import sagemaker
 from sagemaker.predictor import Predictor
+from sagemaker.serializers import JSONSerializer   # ADD THIS LINE
 from sagemaker.deserializers import JSONDeserializer
  
 from sklearn.pipeline import Pipeline
