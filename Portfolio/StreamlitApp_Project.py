@@ -114,16 +114,27 @@ def call_model_api(input_df):
         serializer=JSONSerializer(),
         deserializer=JSONDeserializer()
     )
+
     try:
         if isinstance(input_df, dict):
             input_df = pd.DataFrame([input_df])
+
         input_df = input_df.applymap(lambda x: x[0] if isinstance(x, dict) else x)
-        payload = input_df.to_json(orient='records')
+
+        # Debug: shows exactly what columns are being sent to SageMaker
+        st.write("Columns being sent to SageMaker:", input_df.columns.tolist())
+        st.write(input_df)
+
+        # Let JSONSerializer handle the JSON conversion
+        payload = input_df.to_dict(orient="records")
+
         raw_pred = predictor.predict(payload)
+
         pred_val = raw_pred[0] if isinstance(raw_pred, list) else raw_pred
-        #mapping = {0: "SELL", 1: "HOLD", 2: "BUY"}
-        mapping = {0: "Good Loan", 1: "Bad Loan"}        # FIXED
+
+        mapping = {0: "Good Loan", 1: "Bad Loan"}
         return mapping.get(pred_val), 200
+
     except Exception as e:
         return f"Error: {str(e)}", 500
  
