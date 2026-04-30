@@ -138,7 +138,7 @@ def display_explanation(input_df, session, aws_bucket):
     feature_names = dataset_1.columns[1:]
     selector = best_pipeline.named_steps['selector']
     selected_features = feature_names[selector.get_support()]
-    input_df_transformed = pd.DataFrame(input_df_transformed, columns=selected_features)
+    input_df_transformed = pd.DataFrame(input_df_transformed, columns=feature_names)
     shap_values = explainer(input_df_transformed)
    
     st.subheader("🔍 Decision Transparency (SHAP)")
