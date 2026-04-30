@@ -121,11 +121,6 @@ def call_model_api(input_df):
 
         input_df = input_df.applymap(lambda x: x[0] if isinstance(x, dict) else x)
 
-        # Debug: shows exactly what columns are being sent to SageMaker
-        st.write("Columns being sent to SageMaker:", input_df.columns.tolist())
-        st.write(input_df)
-
-        # Let JSONSerializer handle the JSON conversion
         payload = input_df.to_dict(orient="records")
 
         raw_pred = predictor.predict(payload)
