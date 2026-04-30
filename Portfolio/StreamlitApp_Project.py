@@ -43,7 +43,6 @@ file_path = os.path.join(project_root, 'Portfolio/X_train.csv')
 
 dataset = pd.read_csv(file_path, index_col=False)
 dataset = dataset.drop(['Unnamed: 0'],axis=1)
-#dataset = dataset.loc[:, ~dataset.columns.str.contains('^Unnamed')]
 
 # Access the secrets
 aws_id = st.secrets["aws_credentials"]["AWS_ACCESS_KEY_ID"]
@@ -69,10 +68,10 @@ sm_session = sagemaker.Session(boto_session=session)
 
 MODEL_INFO = {
     "endpoint"  : aws_endpoint,
-    "explainer" : "explainer_sentiment.shap",
-    "pipeline"  : "finalized_fraud_model.tar.gz",
-    "keys"      : ['grade_encoded','term','debt_settlement_flag_Y','int_rate'],
-    "inputs"    : [{"name": k, "type": "number", "min": -1.0, "max": 1.0, "default": 0.0, "step": 0.01} for k in ['grade_encoded','term','debt_settlement_flag_Y','int_rate']]
+    "explainer" : "shap_explainer.pkl",
+    "pipeline"  : "finalized_loan_model.tar.gz",
+    "keys"      : ['grade_encoded','term','debt_settlement_flag_Y','high_int_rate'],
+    "inputs"    : [{"name": k, "type": "number", "min": -1.0, "max": 1.0, "default": 0.0, "step": 0.01} for k in ['grade_encoded','term','debt_settlement_flag_Y','high_int_rate']]
 }
 
 
@@ -87,8 +86,7 @@ def load_pipeline(_session, bucket, key):
         # Extract the .joblib file from the .tar.gz
     with tarfile.open(filename, "r:gz") as tar:
         tar.extractall(path=".")
-        joblib_file = [f for f in tar.getnames() if f.endswith('.joblib')][0]
-        #joblib_file = [f for f in tar.getnames() if f.endswith('.pkl')][0]
+        joblib_file = [f for f in tar.getnames() if f.endswith('.pkl')][0]
    
 
     # Load the full pipeline
@@ -119,8 +117,7 @@ def call_model_api(input_df):
     try:
         raw_pred = predictor.predict(input_df)
         pred_val = pd.DataFrame(raw_pred).values[-1][0]
-        #mapping = {0: "SELL", 1: "HOLD", 2: "BUY"}
-        mapping = {0: "Legitimate", 1: "Fraud"}
+        mapping = {0: "Good Loan", 1: "Bad Loan"}
         return mapping.get(pred_val), 200
     except Exception as e:
         return f"Error: {str(e)}", 500
