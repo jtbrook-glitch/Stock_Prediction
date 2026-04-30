@@ -86,11 +86,12 @@ def load_shap_explainer(_session, bucket, key, local_path):
         return load(f)
  
 # ✅ FIXED CALL MODEL API
+# Prediction Logic
 def call_model_api(input_df):
     predictor = Predictor(
         endpoint_name=MODEL_INFO["endpoint"],
         sagemaker_session=sm_session,
-        serializer=None,
+        serializer=JSONSerializer(),
         deserializer=JSONDeserializer()
     )
 
@@ -100,12 +101,9 @@ def call_model_api(input_df):
 
         input_df = input_df.applymap(lambda x: x[0] if isinstance(x, dict) else x)
 
-        payload = input_df.to_json(orient="records")
+        payload = input_df.to_dict(orient="records")
 
-        raw_pred = predictor.predict(
-            payload,
-            initial_args={"ContentType": "application/json"}
-        )
+        raw_pred = predictor.predict(payload)
 
         pred_val = raw_pred[0] if isinstance(raw_pred, list) else raw_pred
 
