@@ -4,6 +4,7 @@ import pandas as pd
 import streamlit as st
 import matplotlib.pyplot as plt
 import posixpath
+import io
 
 import joblib
 import tarfile
@@ -36,19 +37,22 @@ project_root = os.path.abspath(os.path.join(current_dir, '..'))
 if project_root not in sys.path:
     sys.path.append(project_root)
 
-#from src.feature_utils import extract_features
-#from src.Custom_Classes import DropHighMissingCols, TransactionFeatureEngineer, DropHighCorrelation
-
-file_path = os.path.join(project_root, 'Portfolio/X_train.csv')
-
-dataset = pd.read_csv(file_path, index_col=False)
-
 # Access the secrets
 aws_id = st.secrets["aws_credentials"]["AWS_ACCESS_KEY_ID"]
 aws_secret = st.secrets["aws_credentials"]["AWS_SECRET_ACCESS_KEY"]
 aws_token = st.secrets["aws_credentials"]["AWS_SESSION_TOKEN"]
 aws_bucket = st.secrets["aws_credentials"]["AWS_BUCKET"]
 aws_endpoint = st.secrets["aws_credentials"]["AWS_ENDPOINT"]
+
+# Load dataset from S3
+s3_client_init = boto3.client('s3',
+    aws_access_key_id=aws_id,
+    aws_secret_access_key=aws_secret,
+    aws_session_token=aws_token,
+    region_name='us-east-1'
+)
+obj = s3_client_init.get_object(Bucket=aws_bucket, Key='Portfolio/X_train.csv')
+dataset = pd.read_csv(io.BytesIO(obj['Body'].read()))
 
 # AWS Session Management
 @st.cache_resource # Use this to avoid downloading the file every time the page refreshes
@@ -130,18 +134,16 @@ def display_explanation(input_df, session, aws_bucket):
     preprocessing_pipeline = Pipeline(steps=best_pipeline.steps[:-2])
     input_df=pd.DataFrame(input_df)
     input_df_transformed = preprocessing_pipeline.transform(input_df)
-    #feature_names = best_pipeline[:-3].get_feature_names_out()
     dataset_1 = dataset.iloc[:, 0:]
     feature_names = dataset_1.columns[1:]
     selector = best_pipeline.named_steps['selector']
     selected_features = feature_names[selector.get_support()]
     input_df_transformed = pd.DataFrame(input_df_transformed, columns=selected_features)
-    #input_df_transformed = pd.DataFrame(input_df_transformed)
     shap_values = explainer(input_df_transformed)
    
     st.subheader("🔍 Decision Transparency (SHAP)")
     fig, ax = plt.subplots(figsize=(10, 4))
-    shap.plots.waterfall(shap_values[0, :, 1])  # class 1 = fraud
+    shap.plots.waterfall(shap_values[0, :, 1])
     st.pyplot(fig)
     top_feature = pd.Series(shap_values[0, :, 1].values, index=shap_values[0, :, 1].feature_names).abs().idxmax()
     st.info(f"**Business Insight:** The most influential factor in this decision was **{top_feature}**.")
