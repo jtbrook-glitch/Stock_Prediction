@@ -31,7 +31,6 @@ if project_root not in sys.path:
 file_path = os.path.join(project_root, 'Portfolio/X_train.csv')
  
 dataset = pd.read_csv(file_path)
-dataset = dataset.drop(['Unnamed: 0'], axis=1)
  
 # AWS Secrets
 aws_id = st.secrets["aws_credentials"]["AWS_ACCESS_KEY_ID"]
@@ -173,7 +172,6 @@ with st.form("pred_form"):
     submitted = st.form_submit_button("Run Prediction")
  
 original = dataset.iloc[0:1].to_dict(orient='records')[0]
-original.pop('Unnamed: 0', None)
 original.update(user_inputs)
  
 if submitted:
