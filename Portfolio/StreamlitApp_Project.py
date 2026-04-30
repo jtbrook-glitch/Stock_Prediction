@@ -113,12 +113,14 @@ def call_model_api(input_df):
         endpoint_name=MODEL_INFO["endpoint"],
         sagemaker_session=sm_session,
         serializer=JSONSerializer(),
-        deserializer=NumpyDeserializer()
+        deserializer=JSONDeserializer()
     )
  
     try:
-        raw_pred = predictor.predict(input_df)
-        pred_val = pd.DataFrame(raw_pred).values[-1][0]
+        input_df = pd.DataFrame([input_df]) if isinstance(input_df, dict) else input_df
+        payload = input_df.to_json()
+        raw_pred = predictor.predict(payload)
+        pred_val = raw_pred[0] if isinstance(raw_pred, list) else raw_pred
         #mapping = {0: "SELL", 1: "HOLD", 2: "BUY"}
         mapping = {0: "Good Loan", 1: "Bad Loan"}        # FIXED
         return mapping.get(pred_val), 200
