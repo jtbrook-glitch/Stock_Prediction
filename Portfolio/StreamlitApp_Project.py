@@ -68,12 +68,13 @@ MODEL_INFO = {
     "endpoint": aws_endpoint,
     "explainer": "shap_explainer.pkl",
     "pipeline": "finalized_loan_model.tar.gz",
-    "keys": ['grade_encoded', 'term', 'debt_settlement_flag_Y', 'high_int_rate'],
-    "inputs": [
-        {"name": k, "type": "number", "min": -1.0, "max": 1.0, "default": 0.0, "step": 0.01}
-        for k in ['grade_encoded', 'term', 'debt_settlement_flag_Y', 'high_int_rate']
-    ]
-}
+    "keys": ['grade_encoded', 'term', 'int_rate', 'debt_settlement_flag_Y'],
+"inputs": [
+    {"name": "grade_encoded", "type": "number", "min": -5.0, "max": 5.0, "default": 0.0, "step": 0.01},
+    {"name": "term", "type": "number", "min": -5.0, "max": 5.0, "default": 0.0, "step": 0.01},
+    {"name": "int_rate", "type": "number", "min": -5.0, "max": 5.0, "default": 0.0, "step": 0.01},
+    {"name": "debt_settlement_flag_Y", "type": "number", "min": -5.0, "max": 5.0, "default": 0.0, "step": 0.01}
+]
 
 
 def load_pipeline(_session, bucket, key):
